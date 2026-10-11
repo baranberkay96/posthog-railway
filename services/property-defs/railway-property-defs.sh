@@ -8,6 +8,16 @@ set -euo pipefail
 : "${DATABASE_URL:?DATABASE_URL must be set}"
 : "${KAFKA_HOSTS:?KAFKA_HOSTS must be set}"
 
+# Services start in parallel on Railway; property-defs-rs exits at once if the broker
+# is not reachable yet, and the resulting fast crash loop can leave the deployment
+# marked CRASHED. Wait for every broker in KAFKA_HOSTS first.
+for hp in ${KAFKA_HOSTS//,/ }; do
+  until (exec 3<>"/dev/tcp/${hp%:*}/${hp##*:}") 2>/dev/null; do
+    echo "railway: waiting for kafka ${hp}"
+    sleep 3
+  done
+done
+
 # shellcheck source=railway-supervise.sh
 . /usr/local/bin/railway-supervise.sh
 

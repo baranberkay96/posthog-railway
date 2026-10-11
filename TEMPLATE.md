@@ -966,3 +966,5 @@ First Railway test of the 23-service layout: 22/23 healthy, `web` failed in pre-
 Fix:
 - `services/clickhouse/railway-entrypoint.sh` waits in the background until the name resolves, then runs `SYSTEM DROP DNS CACHE` + `SYSTEM RELOAD CONFIG` until `system.clusters` lists the `posthog` cluster.
 - The `web` pre-deploy step now also waits (up to 50 min) until ClickHouse reports the `posthog` cluster before running `./bin/migrate`.
+
+Post-publish test: one run had `property-defs` CRASHED, a second run passed 23/23. Logs showed property-defs-rs exiting immediately while Redpanda was still starting ("Connect to ... :9092 failed"), so the service crash-looped and could end up marked CRASHED depending on start order. `services/property-defs/railway-property-defs.sh` now waits until every broker in `KAFKA_HOSTS` accepts TCP connections before starting the processes (verified locally: unreachable broker → service keeps waiting, no restarts).
