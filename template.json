@@ -54,13 +54,13 @@
           "required": false
         },
         "CAPTURE_AI_UPSTREAM": {
-          "defaultValue": "${{capture-ai.RAILWAY_PRIVATE_DOMAIN}}:3000",
-          "description": "LLM analytics capture (/i/v0/ai).",
+          "defaultValue": "${{capture.RAILWAY_PRIVATE_DOMAIN}}:3001",
+          "description": "LLM analytics capture (/i/v0/ai; ai process of the capture service).",
           "required": false
         },
         "REPLAY_CAPTURE_UPSTREAM": {
-          "defaultValue": "${{replay-capture.RAILWAY_PRIVATE_DOMAIN}}:3000",
-          "description": "Session replay capture (/s).",
+          "defaultValue": "${{capture.RAILWAY_PRIVATE_DOMAIN}}:3002",
+          "description": "Session replay capture (/s; recordings process of the capture service).",
           "required": false
         },
         "CAPTURE_LOGS_UPSTREAM": {
@@ -89,7 +89,7 @@
           "required": false
         },
         "OBJECTSTORAGE_UPSTREAM": {
-          "defaultValue": "${{objectstorage.RAILWAY_PRIVATE_DOMAIN}}:19000",
+          "defaultValue": "${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
           "description": "Presigned object downloads (/posthog/*).",
           "required": false
         }
@@ -290,22 +290,22 @@
           "required": false
         },
         "OBJECT_STORAGE_ENDPOINT": {
-          "defaultValue": "http://${{objectstorage.RAILWAY_PRIVATE_DOMAIN}}:19000",
+          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
           "description": "SeaweedFS S3 endpoint for exports, media and AI blobs (private network).",
           "required": false
         },
         "OBJECT_STORAGE_PUBLIC_ENDPOINT": {
           "defaultValue": "${{SITE_URL}}",
-          "description": "Base URL for presigned downloads; the proxy forwards /posthog/* to objectstorage.",
+          "description": "Base URL for presigned downloads; the proxy forwards /posthog/* to seaweedfs.",
           "required": false
         },
         "OBJECT_STORAGE_ACCESS_KEY_ID": {
-          "defaultValue": "${{objectstorage.AWS_ACCESS_KEY_ID}}",
+          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
           "description": "Object storage access key (reference).",
           "required": false
         },
         "OBJECT_STORAGE_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{objectstorage.AWS_SECRET_ACCESS_KEY}}",
+          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
           "description": "Object storage secret key (reference).",
           "required": false
         },
@@ -330,12 +330,12 @@
           "required": false
         },
         "RECORDING_API_URL": {
-          "defaultValue": "http://${{recording-api.RAILWAY_PRIVATE_DOMAIN}}:6738",
-          "description": "Internal URL of the recording API (replay playback).",
+          "defaultValue": "http://${{recordings.RAILWAY_PRIVATE_DOMAIN}}:6739",
+          "description": "Internal URL of the recording API (replay playback; second process of the recordings service).",
           "required": false
         },
         "PERSONHOG_ADDR": {
-          "defaultValue": "${{personhog-router.RAILWAY_PRIVATE_DOMAIN}}:50052",
+          "defaultValue": "${{personhog.RAILWAY_PRIVATE_DOMAIN}}:50052",
           "description": "gRPC address of the personhog router.",
           "required": false
         },
@@ -1035,6 +1035,11 @@
           "description": "Redis connection string.",
           "required": false
         },
+        "NODEJS_CAPABILITY_GROUPS": {
+          "defaultValue": "cdp_workflows,realtime_cohorts,logs,traces,feature_flags",
+          "description": "Capabilities of this process: the default plugin-server set plus traces ingestion (replaces upstream's ingestion-logs and ingestion-traces services).",
+          "required": false
+        },
         "PERSONS_DATABASE_URL": {
           "defaultValue": "${{Postgres.DATABASE_URL}}",
           "description": "Persons live in the main database (hobby layout).",
@@ -1091,7 +1096,7 @@
           "required": false
         },
         "OBJECT_STORAGE_ENDPOINT": {
-          "defaultValue": "http://${{objectstorage.RAILWAY_PRIVATE_DOMAIN}}:19000",
+          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
           "description": "SeaweedFS S3 endpoint.",
           "required": false
         },
@@ -1101,12 +1106,12 @@
           "required": false
         },
         "OBJECT_STORAGE_ACCESS_KEY_ID": {
-          "defaultValue": "${{objectstorage.AWS_ACCESS_KEY_ID}}",
+          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
           "description": "Object storage access key (reference).",
           "required": false
         },
         "OBJECT_STORAGE_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{objectstorage.AWS_SECRET_ACCESS_KEY}}",
+          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
           "description": "Object storage secret key (reference).",
           "required": false
         },
@@ -1166,18 +1171,18 @@
           "required": false
         },
         "CDP_VALKEY_HOST": {
-          "defaultValue": "${{valkey.RAILWAY_PRIVATE_DOMAIN}}",
-          "description": "Valkey host for the CDP dual-write store (required by newer node builds; set as in the hobby compose).",
+          "defaultValue": "${{Redis.REDISHOST}}",
+          "description": "Not read by the pinned node build. Newer builds dual-write CDP state to a Valkey host and refuse to start without one; it points at Redis so an upgrade keeps working (the hobby compose runs a separate Valkey).",
           "required": false
         },
         "CDP_VALKEY_PORT": {
           "defaultValue": "6379",
-          "description": "Valkey port.",
+          "description": "Port for CDP_VALKEY_HOST.",
           "required": false
         },
         "CDP_VALKEY_PASSWORD": {
-          "defaultValue": "${{valkey.VALKEY_PASSWORD}}",
-          "description": "Valkey password (reference).",
+          "defaultValue": "${{Redis.REDIS_PASSWORD}}",
+          "description": "Password for CDP_VALKEY_HOST (reference).",
           "required": false
         },
         "ENCRYPTION_SALT_KEYS": {
@@ -1187,7 +1192,7 @@
         }
       }
     },
-    "ingestion-general": {
+    "ingestion": {
       "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
       "source": {
         "repo": "baranberkay96/posthog-railway",
@@ -1206,9 +1211,9 @@
       "tcpProxy": null,
       "volume": null,
       "variables": {
-        "PLUGIN_SERVER_MODE": {
-          "defaultValue": "ingestion-v2-combined",
-          "description": "Node server mode.",
+        "NODE_PROCESSES": {
+          "defaultValue": "ingestion-v2-combined:6738 ingestion-errortracking:6739",
+          "description": "Node processes in this service (mode:port). A process that exits restarts the service.",
           "required": false
         },
         "PORT": {
@@ -1302,7 +1307,7 @@
           "required": false
         },
         "AI_BLOB_S3_ENDPOINT": {
-          "defaultValue": "http://${{objectstorage.RAILWAY_PRIVATE_DOMAIN}}:19000",
+          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
           "description": "SeaweedFS S3 endpoint.",
           "required": false
         },
@@ -1312,12 +1317,12 @@
           "required": false
         },
         "AI_BLOB_S3_ACCESS_KEY_ID": {
-          "defaultValue": "${{objectstorage.AWS_ACCESS_KEY_ID}}",
+          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
           "description": "Object storage access key (reference).",
           "required": false
         },
         "AI_BLOB_S3_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{objectstorage.AWS_SECRET_ACCESS_KEY}}",
+          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
           "description": "Object storage secret key (reference).",
           "required": false
         },
@@ -1326,8 +1331,18 @@
           "description": "Offload AI blobs for all teams.",
           "required": false
         },
+        "INGESTION_AI_EVENT_SPLITTING_ENABLED": {
+          "defaultValue": "true",
+          "description": "Write the full LLM analytics events (prompts, outputs) to the ai_events table and keep them out of the events table, as PostHog's AI lane does.",
+          "required": false
+        },
+        "INGESTION_AI_EVENT_SPLITTING_TEAMS": {
+          "defaultValue": "*",
+          "description": "Teams to split AI events for (all).",
+          "required": false
+        },
         "PERSONHOG_ADDR": {
-          "defaultValue": "${{personhog-router.RAILWAY_PRIVATE_DOMAIN}}:50052",
+          "defaultValue": "${{personhog.RAILWAY_PRIVATE_DOMAIN}}:50052",
           "description": "personhog router (gRPC).",
           "required": false
         },
@@ -1335,10 +1350,15 @@
           "defaultValue": "true",
           "description": "Read persons through personhog for the AI consumer.",
           "required": false
+        },
+        "ERROR_TRACKING_CYMBAL_BASE_URL": {
+          "defaultValue": "http://${{cymbal.RAILWAY_PRIVATE_DOMAIN}}:3302",
+          "description": "cymbal processing service (error tracking process).",
+          "required": false
         }
       }
     },
-    "ingestion-sessionreplay": {
+    "recordings": {
       "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
       "source": {
         "repo": "baranberkay96/posthog-railway",
@@ -1357,9 +1377,9 @@
       "tcpProxy": null,
       "volume": null,
       "variables": {
-        "PLUGIN_SERVER_MODE": {
-          "defaultValue": "recordings-blob-ingestion-v2",
-          "description": "Node server mode.",
+        "NODE_PROCESSES": {
+          "defaultValue": "recordings-blob-ingestion-v2:6738 recording-api:6739",
+          "description": "Node processes in this service (mode:port). web calls the recording API on 6739.",
           "required": false
         },
         "PORT": {
@@ -1375,72 +1395,6 @@
         "KAFKA_HOSTS": {
           "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
           "description": "Kafka (Redpanda) bootstrap server.",
-          "required": false
-        },
-        "REDIS_URL": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis connection string.",
-          "required": false
-        },
-        "SESSION_RECORDING_V2_S3_ENDPOINT": {
-          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
-          "description": "SeaweedFS S3 endpoint for recordings.",
-          "required": false
-        },
-        "SESSION_RECORDING_V2_S3_ACCESS_KEY_ID": {
-          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
-          "description": "Recording store access key (reference).",
-          "required": false
-        },
-        "SESSION_RECORDING_V2_S3_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
-          "description": "Recording store secret key (reference).",
-          "required": false
-        },
-        "SESSION_RECORDING_V2_S3_TIMEOUT_MS": {
-          "defaultValue": "120000",
-          "description": "S3 request timeout (upstream hobby value).",
-          "required": false
-        },
-        "ENCRYPTION_SALT_KEYS": {
-          "defaultValue": "${{web.ENCRYPTION_SALT_KEYS}}",
-          "description": "Must match web (decrypts encrypted function inputs).",
-          "required": false
-        }
-      }
-    },
-    "recording-api": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "repo": "baranberkay96/posthog-railway",
-        "rootDirectory": "/services/posthog-node"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_health",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PLUGIN_SERVER_MODE": {
-          "defaultValue": "recording-api",
-          "description": "Node server mode.",
-          "required": false
-        },
-        "PORT": {
-          "defaultValue": "6738",
-          "description": "Node HTTP server port; also the API port web calls.",
-          "required": false
-        },
-        "DATABASE_URL": {
-          "defaultValue": "${{Postgres.DATABASE_URL}}",
-          "description": "Postgres connection string.",
           "required": false
         },
         "REDIS_URL": {
@@ -1478,16 +1432,6 @@
           "description": "ClickHouse password (reference).",
           "required": false
         },
-        "SESSION_RECORDING_API_REDIS_HOST": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis for the recording API. This setting has no password field; ioredis accepts the full URL (with password) here.",
-          "required": false
-        },
-        "SESSION_RECORDING_API_REDIS_PORT": {
-          "defaultValue": "6379",
-          "description": "Redis port.",
-          "required": false
-        },
         "SESSION_RECORDING_V2_S3_ENDPOINT": {
           "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
           "description": "SeaweedFS S3 endpoint for recordings.",
@@ -1503,237 +1447,29 @@
           "description": "Recording store secret key (reference).",
           "required": false
         },
-        "ENCRYPTION_SALT_KEYS": {
-          "defaultValue": "${{web.ENCRYPTION_SALT_KEYS}}",
-          "description": "Must match web (decrypts encrypted function inputs).",
+        "SESSION_RECORDING_V2_S3_TIMEOUT_MS": {
+          "defaultValue": "120000",
+          "description": "S3 request timeout (upstream hobby value).",
+          "required": false
+        },
+        "SESSION_RECORDING_API_REDIS_HOST": {
+          "defaultValue": "${{Redis.REDIS_URL}}",
+          "description": "Redis for the recording API. This setting has no password field; ioredis accepts the full URL (with password) here.",
+          "required": false
+        },
+        "SESSION_RECORDING_API_REDIS_PORT": {
+          "defaultValue": "6379",
+          "description": "Redis port.",
           "required": false
         },
         "INTERNAL_API_SECRET": {
           "defaultValue": "${{web.INTERNAL_API_SECRET}}",
-          "description": "Must match web (X-Internal-Api-Secret).",
-          "required": false
-        }
-      }
-    },
-    "ingestion-error-tracking": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "repo": "baranberkay96/posthog-railway",
-        "rootDirectory": "/services/posthog-node"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_health",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PLUGIN_SERVER_MODE": {
-          "defaultValue": "ingestion-errortracking",
-          "description": "Node server mode.",
-          "required": false
-        },
-        "PORT": {
-          "defaultValue": "6738",
-          "description": "Node HTTP server port (HTTP_SERVER_PORT default); /_health is the healthcheck.",
-          "required": false
-        },
-        "DATABASE_URL": {
-          "defaultValue": "${{Postgres.DATABASE_URL}}",
-          "description": "Postgres connection string.",
-          "required": false
-        },
-        "KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka (Redpanda) bootstrap server.",
-          "required": false
-        },
-        "REDIS_URL": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis connection string.",
-          "required": false
-        },
-        "CDP_REDIS_HOST": {
-          "defaultValue": "${{Redis.REDISHOST}}",
-          "description": "Redis host for CDP state (function health, rate limits).",
-          "required": false
-        },
-        "CDP_REDIS_PORT": {
-          "defaultValue": "6379",
-          "description": "Redis port.",
-          "required": false
-        },
-        "CDP_REDIS_PASSWORD": {
-          "defaultValue": "${{Redis.REDIS_PASSWORD}}",
-          "description": "Redis password (reference).",
+          "description": "Must match web (X-Internal-Api-Secret on recording API calls).",
           "required": false
         },
         "ENCRYPTION_SALT_KEYS": {
           "defaultValue": "${{web.ENCRYPTION_SALT_KEYS}}",
           "description": "Must match web (decrypts encrypted function inputs).",
-          "required": false
-        },
-        "ERROR_TRACKING_CYMBAL_BASE_URL": {
-          "defaultValue": "http://${{cymbal.RAILWAY_PRIVATE_DOMAIN}}:3302",
-          "description": "cymbal processing service.",
-          "required": false
-        }
-      }
-    },
-    "ingestion-logs": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "repo": "baranberkay96/posthog-railway",
-        "rootDirectory": "/services/posthog-node"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_health",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PLUGIN_SERVER_MODE": {
-          "defaultValue": "ingestion-logs",
-          "description": "Node server mode.",
-          "required": false
-        },
-        "PORT": {
-          "defaultValue": "6738",
-          "description": "Node HTTP server port (HTTP_SERVER_PORT default); /_health is the healthcheck.",
-          "required": false
-        },
-        "DATABASE_URL": {
-          "defaultValue": "${{Postgres.DATABASE_URL}}",
-          "description": "Postgres connection string.",
-          "required": false
-        },
-        "KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka (Redpanda) bootstrap server.",
-          "required": false
-        },
-        "REDIS_URL": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis connection string.",
-          "required": false
-        },
-        "LOGS_REDIS_HOST": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis for logs state. The pinned node build does not pass LOGS_REDIS_PASSWORD to this pool, so the full URL (with password) goes here; ioredis accepts it.",
-          "required": false
-        },
-        "LOGS_REDIS_PORT": {
-          "defaultValue": "6379",
-          "description": "Redis port.",
-          "required": false
-        },
-        "LOGS_REDIS_PASSWORD": {
-          "defaultValue": "${{Redis.REDIS_PASSWORD}}",
-          "description": "Redis password (reference).",
-          "required": false
-        },
-        "LOGS_REDIS_TLS": {
-          "defaultValue": "false",
-          "description": "No TLS on the private network.",
-          "required": false
-        },
-        "CDP_REDIS_HOST": {
-          "defaultValue": "${{Redis.REDISHOST}}",
-          "description": "Redis host for CDP state (function health, rate limits).",
-          "required": false
-        },
-        "CDP_REDIS_PORT": {
-          "defaultValue": "6379",
-          "description": "Redis port.",
-          "required": false
-        },
-        "CDP_REDIS_PASSWORD": {
-          "defaultValue": "${{Redis.REDIS_PASSWORD}}",
-          "description": "Redis password (reference).",
-          "required": false
-        },
-        "ENCRYPTION_SALT_KEYS": {
-          "defaultValue": "${{web.ENCRYPTION_SALT_KEYS}}",
-          "description": "Must match web (decrypts encrypted function inputs).",
-          "required": false
-        }
-      }
-    },
-    "ingestion-traces": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "repo": "baranberkay96/posthog-railway",
-        "rootDirectory": "/services/posthog-node"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_health",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PLUGIN_SERVER_MODE": {
-          "defaultValue": "ingestion-traces",
-          "description": "Node server mode.",
-          "required": false
-        },
-        "PORT": {
-          "defaultValue": "6738",
-          "description": "Node HTTP server port (HTTP_SERVER_PORT default); /_health is the healthcheck.",
-          "required": false
-        },
-        "DATABASE_URL": {
-          "defaultValue": "${{Postgres.DATABASE_URL}}",
-          "description": "Postgres connection string.",
-          "required": false
-        },
-        "KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka (Redpanda) bootstrap server.",
-          "required": false
-        },
-        "REDIS_URL": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis connection string.",
-          "required": false
-        },
-        "TRACES_REDIS_HOST": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis for traces state. Full URL with password, as for LOGS_REDIS_HOST.",
-          "required": false
-        },
-        "TRACES_REDIS_PORT": {
-          "defaultValue": "6379",
-          "description": "Redis port.",
-          "required": false
-        },
-        "TRACES_REDIS_PASSWORD": {
-          "defaultValue": "${{Redis.REDIS_PASSWORD}}",
-          "description": "Redis password (reference).",
-          "required": false
-        },
-        "TRACES_REDIS_TLS": {
-          "defaultValue": "false",
-          "description": "No TLS on the private network.",
           "required": false
         }
       }
@@ -1741,7 +1477,8 @@
     "capture": {
       "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
       "source": {
-        "image": "ghcr.io/posthog/posthog/capture:sha-14a43b7"
+        "repo": "baranberkay96/posthog-railway",
+        "rootDirectory": "/services/capture"
       },
       "startCommand": null,
       "preDeployCommand": null,
@@ -1758,12 +1495,27 @@
       "variables": {
         "PORT": {
           "defaultValue": "3000",
-          "description": "Capture HTTP port; /_readiness is the healthcheck.",
+          "description": "Events capture port; /_readiness is the healthcheck.",
           "required": false
         },
-        "ADDRESS": {
-          "defaultValue": "[::]:3000",
-          "description": "Bind address (dual-stack).",
+        "CAPTURE_EVENTS_PORT": {
+          "defaultValue": "3000",
+          "description": "Port of the events process.",
+          "required": false
+        },
+        "CAPTURE_AI_PORT": {
+          "defaultValue": "3001",
+          "description": "Port of the LLM analytics (ai) process.",
+          "required": false
+        },
+        "CAPTURE_REPLAY_PORT": {
+          "defaultValue": "3002",
+          "description": "Port of the session replay (recordings) process.",
+          "required": false
+        },
+        "CAPTURE_AI_LANE_TOPIC": {
+          "defaultValue": "events_plugin_ingestion",
+          "description": "Topic for LLM analytics events. The main topic, because the pinned Node build does not consume PostHog's separate AI lane (events_plugin_ingestion_ai); change only together with a Node image that does.",
           "required": false
         },
         "KAFKA_HOSTS": {
@@ -1784,261 +1536,6 @@
         "RUST_LOG": {
           "defaultValue": "info,rdkafka=warn",
           "description": "Log level.",
-          "required": false
-        },
-        "CAPTURE_MODE": {
-          "defaultValue": "events",
-          "description": "Capture mode.",
-          "required": false
-        },
-        "KAFKA_TOPIC": {
-          "defaultValue": "events_plugin_ingestion",
-          "description": "Main ingestion topic.",
-          "required": false
-        },
-        "CAPTURE_OUTPUT_ANALYTICS_MAIN_TOPIC": {
-          "defaultValue": "events_plugin_ingestion",
-          "description": "Main analytics topic.",
-          "required": false
-        },
-        "KAFKA_ERROR_TRACKING_TOPIC": {
-          "defaultValue": "ingestion-errortracking-main",
-          "description": "Exception events topic.",
-          "required": false
-        },
-        "CAPTURE_OUTPUT_ERROR_TRACKING_TOPIC": {
-          "defaultValue": "ingestion-errortracking-main",
-          "description": "Exception events topic (v1 output).",
-          "required": false
-        },
-        "CAPTURE_V1_SINKS": {
-          "defaultValue": "msk",
-          "description": "v1 capture sink: the Kafka (MSK-compatible) sink.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka bootstrap server for the v1 sink.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_MAIN": {
-          "defaultValue": "events_plugin_ingestion",
-          "description": "Main topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_HISTORICAL": {
-          "defaultValue": "events_plugin_ingestion_historical",
-          "description": "Historical topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_OVERFLOW": {
-          "defaultValue": "events_plugin_ingestion_overflow",
-          "description": "Overflow topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_DLQ": {
-          "defaultValue": "events_plugin_ingestion_dlq",
-          "description": "Dead-letter topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_EXCEPTION": {
-          "defaultValue": "ingestion-errortracking-main",
-          "description": "Exception events topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_HEATMAP": {
-          "defaultValue": "heatmaps_ingestion",
-          "description": "Heatmap events topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_CLIENT_INGESTION_WARNING": {
-          "defaultValue": "ingestion-clientwarnings-main-1",
-          "description": "Client ingestion warnings topic.",
-          "required": false
-        },
-        "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": {
-          "defaultValue": "15",
-          "description": "Short drain on redeploy.",
-          "required": false
-        }
-      }
-    },
-    "replay-capture": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "image": "ghcr.io/posthog/posthog/capture:sha-14a43b7"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_readiness",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PORT": {
-          "defaultValue": "3000",
-          "description": "Capture HTTP port; /_readiness is the healthcheck.",
-          "required": false
-        },
-        "ADDRESS": {
-          "defaultValue": "[::]:3000",
-          "description": "Bind address (dual-stack).",
-          "required": false
-        },
-        "KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka bootstrap server.",
-          "required": false
-        },
-        "KAFKA_INGESTION_PRODUCER_METADATA_BROKER_LIST": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka metadata broker list for the producer.",
-          "required": false
-        },
-        "REDIS_URL": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis (quota limits, event restrictions).",
-          "required": false
-        },
-        "RUST_LOG": {
-          "defaultValue": "info,rdkafka=warn",
-          "description": "Log level.",
-          "required": false
-        },
-        "CAPTURE_MODE": {
-          "defaultValue": "recordings",
-          "description": "Capture mode.",
-          "required": false
-        },
-        "KAFKA_TOPIC": {
-          "defaultValue": "session_recording_snapshot_item_events",
-          "description": "Recording snapshots topic.",
-          "required": false
-        },
-        "CAPTURE_OUTPUT_SESSION_REPLAY_MAIN_TOPIC": {
-          "defaultValue": "session_recording_snapshot_item_events",
-          "description": "Recording snapshots topic (v1 output).",
-          "required": false
-        },
-        "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": {
-          "defaultValue": "15",
-          "description": "Short drain on redeploy.",
-          "required": false
-        }
-      }
-    },
-    "capture-ai": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "image": "ghcr.io/posthog/posthog/capture:sha-14a43b7"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_readiness",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PORT": {
-          "defaultValue": "3000",
-          "description": "Capture HTTP port; /_readiness is the healthcheck.",
-          "required": false
-        },
-        "ADDRESS": {
-          "defaultValue": "[::]:3000",
-          "description": "Bind address (dual-stack).",
-          "required": false
-        },
-        "KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka bootstrap server.",
-          "required": false
-        },
-        "KAFKA_INGESTION_PRODUCER_METADATA_BROKER_LIST": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka metadata broker list for the producer.",
-          "required": false
-        },
-        "REDIS_URL": {
-          "defaultValue": "${{Redis.REDIS_URL}}",
-          "description": "Redis (quota limits, event restrictions).",
-          "required": false
-        },
-        "RUST_LOG": {
-          "defaultValue": "info,rdkafka=warn",
-          "description": "Log level.",
-          "required": false
-        },
-        "CAPTURE_MODE": {
-          "defaultValue": "ai",
-          "description": "Capture mode.",
-          "required": false
-        },
-        "KAFKA_TOPIC": {
-          "defaultValue": "events_plugin_ingestion_ai",
-          "description": "AI events topic.",
-          "required": false
-        },
-        "CAPTURE_OUTPUT_ANALYTICS_MAIN_TOPIC": {
-          "defaultValue": "events_plugin_ingestion_ai",
-          "description": "AI events topic (v1 output).",
-          "required": false
-        },
-        "CAPTURE_V1_SINKS": {
-          "defaultValue": "msk",
-          "description": "v1 capture sink: the Kafka (MSK-compatible) sink.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka bootstrap server for the v1 sink.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_MAIN": {
-          "defaultValue": "events_plugin_ingestion_ai",
-          "description": "Main topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_HISTORICAL": {
-          "defaultValue": "events_plugin_ingestion_ai",
-          "description": "Historical topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_OVERFLOW": {
-          "defaultValue": "events_plugin_ingestion_ai",
-          "description": "Overflow topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_DLQ": {
-          "defaultValue": "events_plugin_ingestion_dlq",
-          "description": "Dead-letter topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_EXCEPTION": {
-          "defaultValue": "ingestion-errortracking-main",
-          "description": "Exception events topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_HEATMAP": {
-          "defaultValue": "heatmaps_ingestion",
-          "description": "Heatmap events topic.",
-          "required": false
-        },
-        "CAPTURE_V1_SINK_MSK_KAFKA_TOPIC_CLIENT_INGESTION_WARNING": {
-          "defaultValue": "ingestion-clientwarnings-main-1",
-          "description": "Client ingestion warnings topic.",
           "required": false
         },
         "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": {
@@ -2123,10 +1620,11 @@
         }
       }
     },
-    "property-defs-rs": {
+    "property-defs": {
       "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
       "source": {
-        "image": "ghcr.io/posthog/posthog/property-defs-rs:sha-000ac49"
+        "repo": "baranberkay96/posthog-railway",
+        "rootDirectory": "/services/property-defs"
       },
       "startCommand": null,
       "preDeployCommand": null,
@@ -2143,7 +1641,7 @@
       "variables": {
         "PORT": {
           "defaultValue": "3301",
-          "description": "HTTP port (/_readiness).",
+          "description": "HTTP port of the events process (/_readiness).",
           "required": false
         },
         "DATABASE_URL": {
@@ -2154,66 +1652,6 @@
         "KAFKA_HOSTS": {
           "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
           "description": "Kafka bootstrap server.",
-          "required": false
-        },
-        "SKIP_WRITES": {
-          "defaultValue": "false",
-          "description": "Write definitions.",
-          "required": false
-        },
-        "SKIP_READS": {
-          "defaultValue": "false",
-          "description": "Read existing definitions.",
-          "required": false
-        },
-        "FILTER_MODE": {
-          "defaultValue": "opt-out",
-          "description": "Process all teams unless opted out.",
-          "required": false
-        }
-      }
-    },
-    "property-defs-ai": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "image": "ghcr.io/posthog/posthog/property-defs-rs:sha-000ac49"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_readiness",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PORT": {
-          "defaultValue": "3301",
-          "description": "HTTP port (/_readiness).",
-          "required": false
-        },
-        "DATABASE_URL": {
-          "defaultValue": "${{Postgres.DATABASE_URL}}",
-          "description": "Postgres connection string.",
-          "required": false
-        },
-        "KAFKA_HOSTS": {
-          "defaultValue": "${{kafka.RAILWAY_PRIVATE_DOMAIN}}:9092",
-          "description": "Kafka bootstrap server.",
-          "required": false
-        },
-        "KAFKA_CONSUMER_TOPIC": {
-          "defaultValue": "clickhouse_ai_events_json",
-          "description": "AI events topic.",
-          "required": false
-        },
-        "KAFKA_CONSUMER_GROUP": {
-          "defaultValue": "property-defs-ai",
-          "description": "Separate consumer group.",
           "required": false
         },
         "SKIP_WRITES": {
@@ -2298,17 +1736,17 @@
           "required": false
         },
         "OBJECT_STORAGE_ENDPOINT": {
-          "defaultValue": "http://${{objectstorage.RAILWAY_PRIVATE_DOMAIN}}:19000",
-          "description": "HyperCache S3 tier endpoint (objectstorage).",
+          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
+          "description": "HyperCache S3 tier endpoint (SeaweedFS).",
           "required": false
         },
         "AWS_ACCESS_KEY_ID": {
-          "defaultValue": "${{objectstorage.AWS_ACCESS_KEY_ID}}",
+          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
           "description": "Object storage access key (reference).",
           "required": false
         },
         "AWS_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{objectstorage.AWS_SECRET_ACCESS_KEY}}",
+          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
           "description": "Object storage secret key (reference).",
           "required": false
         },
@@ -2363,17 +1801,17 @@
           "required": false
         },
         "OBJECT_STORAGE_ENDPOINT": {
-          "defaultValue": "http://${{objectstorage.RAILWAY_PRIVATE_DOMAIN}}:19000",
-          "description": "HyperCache S3 tier endpoint (objectstorage).",
+          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
+          "description": "HyperCache S3 tier endpoint (SeaweedFS).",
           "required": false
         },
         "AWS_ACCESS_KEY_ID": {
-          "defaultValue": "${{objectstorage.AWS_ACCESS_KEY_ID}}",
+          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
           "description": "Object storage access key (reference).",
           "required": false
         },
         "AWS_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{objectstorage.AWS_SECRET_ACCESS_KEY}}",
+          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
           "description": "Object storage secret key (reference).",
           "required": false
         },
@@ -2389,10 +1827,11 @@
         }
       }
     },
-    "personhog-replica": {
+    "personhog": {
       "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
       "source": {
-        "image": "ghcr.io/posthog/posthog/personhog-replica:sha-4fb044d"
+        "repo": "baranberkay96/posthog-railway",
+        "rootDirectory": "/services/personhog"
       },
       "startCommand": null,
       "preDeployCommand": null,
@@ -2408,18 +1847,8 @@
       "volume": null,
       "variables": {
         "PORT": {
-          "defaultValue": "9100",
-          "description": "Metrics/health port; /_readiness is the healthcheck.",
-          "required": false
-        },
-        "METRICS_PORT": {
-          "defaultValue": "9100",
-          "description": "Metrics/health port.",
-          "required": false
-        },
-        "GRPC_ADDRESS": {
-          "defaultValue": "[::]:50051",
-          "description": "gRPC bind address (dual-stack).",
+          "defaultValue": "9101",
+          "description": "Router metrics/health port; /_readiness is the healthcheck.",
           "required": false
         },
         "PRIMARY_DATABASE_URL": {
@@ -2427,54 +1856,9 @@
           "description": "Persons database (main database in the hobby layout).",
           "required": false
         },
-        "RUST_LOG": {
-          "defaultValue": "info",
-          "description": "Log level.",
-          "required": false
-        }
-      }
-    },
-    "personhog-router": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "image": "ghcr.io/posthog/posthog/personhog-router:sha-4fb044d"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_readiness",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PORT": {
-          "defaultValue": "9101",
-          "description": "Metrics/health port; /_readiness is the healthcheck.",
-          "required": false
-        },
-        "METRICS_PORT": {
-          "defaultValue": "9101",
-          "description": "Metrics/health port.",
-          "required": false
-        },
-        "GRPC_ADDRESS": {
-          "defaultValue": "[::]:50052",
-          "description": "gRPC bind address (dual-stack).",
-          "required": false
-        },
-        "REPLICA_URL": {
-          "defaultValue": "http://${{personhog-replica.RAILWAY_PRIVATE_DOMAIN}}:50051",
-          "description": "personhog-replica endpoint.",
-          "required": false
-        },
         "BACKEND_TIMEOUT_MS": {
           "defaultValue": "5000",
-          "description": "Backend call timeout.",
+          "description": "Router-to-replica call timeout.",
           "required": false
         },
         "RUST_LOG": {
@@ -2505,7 +1889,7 @@
       "variables": {
         "PORT": {
           "defaultValue": "3302",
-          "description": "HTTP port; /_readiness is the healthcheck.",
+          "description": "HTTP port of the processing process; /_readiness is the healthcheck.",
           "required": false
         },
         "BIND_HOST": {
@@ -2541,91 +1925,6 @@
         "ISSUE_BUCKETS_REDIS_URL": {
           "defaultValue": "${{Redis.REDIS_URL}}",
           "description": "Redis for issue rate buckets.",
-          "required": false
-        },
-        "OBJECT_STORAGE_BUCKET": {
-          "defaultValue": "posthog",
-          "description": "Bucket for symbol sets.",
-          "required": false
-        },
-        "OBJECT_STORAGE_ENDPOINT": {
-          "defaultValue": "http://${{seaweedfs.RAILWAY_PRIVATE_DOMAIN}}:8333",
-          "description": "SeaweedFS S3 endpoint.",
-          "required": false
-        },
-        "OBJECT_STORAGE_ACCESS_KEY_ID": {
-          "defaultValue": "${{seaweedfs.AWS_ACCESS_KEY_ID}}",
-          "description": "Access key (reference).",
-          "required": false
-        },
-        "OBJECT_STORAGE_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{seaweedfs.AWS_SECRET_ACCESS_KEY}}",
-          "description": "Secret key (reference).",
-          "required": false
-        },
-        "OBJECT_STORAGE_FORCE_PATH_STYLE": {
-          "defaultValue": "true",
-          "description": "SeaweedFS needs path-style requests.",
-          "required": false
-        },
-        "CYMBAL_REMOTE_RESOLUTION_HOST": {
-          "defaultValue": "${{cymbal-resolution.RAILWAY_PRIVATE_DOMAIN}}",
-          "description": "Host of the cymbal resolution gRPC service (mandatory).",
-          "required": false
-        },
-        "INTERNAL_API_SECRET": {
-          "defaultValue": "${{web.INTERNAL_API_SECRET}}",
-          "description": "Must match web.",
-          "required": false
-        },
-        "RUST_LOG": {
-          "defaultValue": "info",
-          "description": "Log level.",
-          "required": false
-        }
-      }
-    },
-    "cymbal-resolution": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/posthog.svg",
-      "source": {
-        "image": "ghcr.io/posthog/posthog/cymbal:sha-ef168ea"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/_readiness",
-      "healthcheckTimeout": 1200,
-      "restartPolicyType": "ALWAYS",
-      "restartPolicyMaxRetries": null,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "PORT": {
-          "defaultValue": "9101",
-          "description": "Metrics/health port; /_readiness is the healthcheck.",
-          "required": false
-        },
-        "METRICS_PORT": {
-          "defaultValue": "9101",
-          "description": "Metrics/health port.",
-          "required": false
-        },
-        "CYMBAL_MODE": {
-          "defaultValue": "resolution",
-          "description": "Run the resolution gRPC server.",
-          "required": false
-        },
-        "GRPC_ADDRESS": {
-          "defaultValue": "[::]:50061",
-          "description": "gRPC bind address (dual-stack).",
-          "required": false
-        },
-        "DATABASE_URL": {
-          "defaultValue": "${{Postgres.DATABASE_URL}}",
-          "description": "Postgres connection string.",
           "required": false
         },
         "OBJECT_STORAGE_BUCKET": {
@@ -3167,84 +2466,6 @@
         }
       }
     },
-    "valkey": {
-      "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/valkey.svg",
-      "source": {
-        "image": "valkey/valkey:8.1.10-alpine"
-      },
-      "startCommand": "/bin/sh -c \"exec valkey-server --requirepass $VALKEY_PASSWORD --maxmemory 200mb --maxmemory-policy allkeys-lru --save ''\"",
-      "preDeployCommand": null,
-      "healthcheckPath": null,
-      "healthcheckTimeout": null,
-      "restartPolicyType": "ON_FAILURE",
-      "restartPolicyMaxRetries": 10,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": null,
-      "variables": {
-        "VALKEY_PASSWORD": {
-          "defaultValue": "${{secret(32, \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\")}}",
-          "description": "Valkey password.",
-          "required": false
-        }
-      }
-    },
-    "objectstorage": {
-      "icon": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/seaweedfs.svg",
-      "source": {
-        "repo": "baranberkay96/posthog-railway",
-        "rootDirectory": "/services/seaweedfs"
-      },
-      "startCommand": null,
-      "preDeployCommand": null,
-      "healthcheckPath": "/healthz",
-      "healthcheckTimeout": 300,
-      "restartPolicyType": "ON_FAILURE",
-      "restartPolicyMaxRetries": 10,
-      "numReplicas": 1,
-      "cronSchedule": null,
-      "publicDomain": false,
-      "targetPort": null,
-      "tcpProxy": null,
-      "volume": {
-        "mountPath": "/data"
-      },
-      "variables": {
-        "PORT": {
-          "defaultValue": "19000",
-          "description": "S3 port; /healthz is the healthcheck.",
-          "required": false
-        },
-        "S3_PORT": {
-          "defaultValue": "19000",
-          "description": "S3 gateway port (upstream objectstorage port).",
-          "required": false
-        },
-        "S3_BUCKETS": {
-          "defaultValue": "posthog,ai-blobs",
-          "description": "Buckets created at start (idempotent).",
-          "required": false
-        },
-        "AWS_ACCESS_KEY_ID": {
-          "defaultValue": "${{secret(20, \"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\")}}",
-          "description": "S3 access key (admin identity).",
-          "required": false
-        },
-        "AWS_SECRET_ACCESS_KEY": {
-          "defaultValue": "${{secret(40, \"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789\")}}",
-          "description": "S3 secret key.",
-          "required": false
-        },
-        "RAILWAY_DEPLOYMENT_DRAINING_SECONDS": {
-          "defaultValue": "30",
-          "description": "Clean shutdown on redeploy.",
-          "required": false
-        }
-      }
-    },
     "seaweedfs": {
       "icon": "https://cdn.jsdelivr.net/gh/selfhst/icons@main/svg/seaweedfs.svg",
       "source": {
@@ -3277,7 +2498,7 @@
           "required": false
         },
         "S3_BUCKETS": {
-          "defaultValue": "posthog",
+          "defaultValue": "posthog,ai-blobs",
           "description": "Buckets created at start (idempotent).",
           "required": false
         },

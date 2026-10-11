@@ -6,7 +6,7 @@ PostHog is an open-source product platform: product analytics, web analytics, se
 
 ## About Hosting PostHog
 
-Self-hosted PostHog is a distributed system, not a single container. Rust capture services receive events from the SDKs and write them to Kafka. Node.js ingestion services enrich them (persons, groups, GeoIP, transformations) and feed ClickHouse, where every chart and query runs. Django serves the app and API, Celery and Temporal run background jobs and exports, and SeaweedFS stores session recordings and exports. This template wires all 34 services together over Railway's private network behind one public router, runs database migrations before the app starts, creates the Kafka topics, bakes in the GeoIP database and keeps ClickHouse tuned for a container. You open one URL and create your account.
+Self-hosted PostHog is a distributed system, not a single container. Rust capture services receive events from the SDKs and write them to Kafka. Node.js ingestion services enrich them (persons, groups, GeoIP, transformations) and feed ClickHouse, where every chart and query runs. Django serves the app and API, Celery and Temporal run background jobs and exports, and SeaweedFS stores session recordings and exports. This template runs every process of PostHog's hobby stack in 23 Railway services (related processes share a service to stay within Railway's 25-service template limit), wired together over the private network behind one public router. It runs database migrations before the app starts, creates the Kafka topics, bakes in the GeoIP database and keeps ClickHouse tuned for a container. You open one URL and create your account.
 
 ## Common Use Cases
 
@@ -21,7 +21,7 @@ Self-hosted PostHog is a distributed system, not a single container. Rust captur
 - PostHog app images (`posthog/posthog`, `posthog/posthog-node`, PostHog's Rust services), pinned to exact commit builds
 - ClickHouse 26.9 with ZooKeeper
 - Redpanda (Kafka API)
-- PostgreSQL (Railway Postgres), Redis 7.2 and Valkey
+- PostgreSQL (Railway Postgres) and Redis 7.2
 - Temporal (workflow engine) and Browserless (headless Chromium for image exports)
 - SeaweedFS (S3-compatible storage for exports and recordings)
 
@@ -41,9 +41,9 @@ Self-hosted PostHog is a distributed system, not a single container. Rust captur
 |---|---|---|
 | Edge | proxy | Only public service. Routes `/e`, `/s`, `/flags`, `/livestream`, `/posthog/*` and the app to the services below. |
 | App | web, worker, temporal-django-worker | Django UI/API (migrations run in web's pre-deploy step), Celery + scheduler, Temporal worker |
-| Ingestion (Node) | plugins, ingestion-general, ingestion-sessionreplay, recording-api, ingestion-error-tracking, ingestion-logs, ingestion-traces | Event, replay, error, logs and traces pipelines; CDP destinations |
-| Capture and flags (Rust/Go) | capture, replay-capture, capture-ai, capture-logs, feature-flags, hypercache-server, property-defs-rs, property-defs-ai, personhog-replica, personhog-router, cymbal, cymbal-resolution, livestream | SDK endpoints, flag evaluation, surveys, persons API, error symbolication, live events |
-| Data | clickhouse, zookeeper, kafka, Postgres, Redis, valkey, objectstorage, seaweedfs | ClickHouse, Redpanda, Postgres, both SeaweedFS stores and ZooKeeper have volumes |
+| Ingestion (Node) | plugins (CDP, logs and traces), ingestion (events + error tracking), recordings (replay ingestion + recording API) | Event, replay, error, logs and traces pipelines; CDP destinations |
+| Capture and flags (Rust/Go) | capture (events, AI and replay capture), capture-logs, feature-flags, hypercache-server, property-defs, personhog, cymbal, livestream | SDK endpoints, flag evaluation, surveys, persons API, error symbolication, live events |
+| Data | clickhouse, zookeeper, kafka, Postgres, Redis, seaweedfs | ClickHouse, Redpanda, Postgres, SeaweedFS and ZooKeeper have volumes |
 | Jobs | temporal, browserless | Workflow engine; headless Chromium for PNG exports and heatmaps (Browserless is SSPL-1.0 or commercial; see NOTICE.md) |
 
 **First login**
@@ -56,12 +56,14 @@ Self-hosted PostHog is a distributed system, not a single container. Rust captur
 
 **Custom domain:** add it to the `proxy` service, then set `SITE_URL` on `web` to `https://{your-domain}` and redeploy the PostHog services.
 
-**Scaling:** `capture`, the `ingestion-*` services and `recording-api` are stateless and can run more replicas. Keep `worker` at one replica (it runs the Celery scheduler); add a copy without `--with-scheduler` if you need more Celery throughput. `web` concurrency is set by `GRANIAN_WORKERS` (2 here, about 1.1 GB RAM per worker). ClickHouse and Redpanda scale vertically (`REDPANDA_MEMORY`, `REDPANDA_SMP`).
+**Services with several processes:** `capture`, `ingestion`, `recordings`, `property-defs`, `personhog` and `cymbal` each run two or three PostHog processes that upstream runs as separate containers (same images and settings). If one process stops, the service restarts as a whole. The table in `TEMPLATE.md` lists which upstream containers each one replaces.
 
-**Pinning and upgrades:** PostHog does not publish versioned self-hosted releases; every image is pinned to a commit build. The Node services use the same `posthog/posthog-node` build the hobby installer deploys. To upgrade, pick a newer master commit, update the `posthog/posthog` tag on web, worker and temporal-django-worker, the Rust image tags, and `POSTHOG_COMMIT` in `services/clickhouse` and `services/kafka`; change the Node image only to a build that works with hobby's persons tables. Compare PostHog's compose files between the two commits for new services or variables before redeploying.
+**Scaling:** `capture`, `ingestion` and `recordings` are stateless and can run more replicas (all processes of a service scale together). Keep `worker` at one replica (it runs the Celery scheduler); add a copy without `--with-scheduler` if you need more Celery throughput. `web` concurrency is set by `GRANIAN_WORKERS` (2 here, about 1.1 GB RAM per worker). ClickHouse and Redpanda scale vertically (`REDPANDA_MEMORY`, `REDPANDA_SMP`).
 
-**Resources:** idle around 10 GB RAM (about $110/month); a team sending a few million events a month typically uses 15–18 GB (about $200–230/month). Hobby plan works; Pro is recommended because Hobby limits each volume to 5 GB.
+**Pinning and upgrades:** PostHog does not publish versioned self-hosted releases; every image is pinned to a commit build. The Node services use the same `posthog/posthog-node` build the hobby installer deploys. To upgrade, pick a newer master commit, update the `posthog/posthog` tag on web, worker and temporal-django-worker, the Rust image tags (service images and the `FROM` lines in `services/capture`, `services/property-defs`, `services/personhog`, `services/cymbal`, `services/feature-flags`), and `POSTHOG_COMMIT` in `services/clickhouse` and `services/kafka`; change the Node image only to a build that works with hobby's persons tables. If that Node build reads PostHog's separate AI-events topic, also set `CAPTURE_AI_LANE_TOPIC=events_plugin_ingestion_ai` on `capture`. Compare PostHog's compose files between the two commits for new services or variables before redeploying.
+
+**Resources:** idle around 10 GB RAM (about $115/month); a team sending a few million events a month typically uses 16–18 GB (about $210–230/month). Hobby plan works; Pro is recommended because Hobby limits each volume to 5 GB.
 
 ### Why Deploy PostHog on Railway?
 
-PostHog's self-hosted stack has more than thirty moving parts. Railway runs them as one project with private networking, volumes, generated secrets and per-second billing, so you get your own PostHog instance without managing servers or Kubernetes. Scaling an ingestion service is a replica setting, and every component is pinned so upgrades are deliberate.
+PostHog's self-hosted stack has more than thirty moving parts. Railway runs them as one project of 23 services with private networking, volumes, generated secrets and per-second billing, so you get your own PostHog instance without managing servers or Kubernetes. Scaling an ingestion service is a replica setting, and every component is pinned so upgrades are deliberate.

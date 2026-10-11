@@ -48,7 +48,7 @@
 	}
 
 	handle @capture-ai {
-		reverse_proxy {$CAPTURE_AI_UPSTREAM:capture-ai.railway.internal:3000}
+		reverse_proxy {$CAPTURE_AI_UPSTREAM:capture.railway.internal:3001}
 	}
 
 	handle @capture {
@@ -56,7 +56,7 @@
 	}
 
 	handle @replay-capture {
-		reverse_proxy {$REPLAY_CAPTURE_UPSTREAM:replay-capture.railway.internal:3000}
+		reverse_proxy {$REPLAY_CAPTURE_UPSTREAM:capture.railway.internal:3002}
 	}
 
 	handle @capture-logs {
@@ -82,7 +82,7 @@
 	# Presigned object URLs (exports, media) are signed for this public host and
 	# forwarded unchanged; the Host header is preserved so the signature matches.
 	handle @objectstorage {
-		reverse_proxy {$OBJECTSTORAGE_UPSTREAM:objectstorage.railway.internal:19000}
+		reverse_proxy {$OBJECTSTORAGE_UPSTREAM:seaweedfs.railway.internal:8333}
 	}
 
 	handle {

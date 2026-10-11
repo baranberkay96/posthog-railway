@@ -1,5 +1,6 @@
-# PostHog Node.js services (plugins/CDP, ingestion, session replay, recording API,
-# error tracking, logs and traces ingestion) with the GeoLite2 database baked in.
+# PostHog Node.js services (plugins/CDP with logs and traces ingestion, event ingestion
+# with error tracking, session replay ingestion with the recording API) with the
+# GeoLite2 database baked in.
 #
 # The hobby compose mounts a host ./share directory with GeoLite2-City.mmdb; Railway
 # has no shared host files, so the database is copied from PostHog's own livestream
@@ -22,13 +23,15 @@ FROM posthog/posthog-node:82ea6681305bb00ad4ca920e3ba6e8fb39157424
 
 COPY --from=geoip /share /share
 
-COPY --chmod=0755 railway-node-env.sh /usr/local/bin/railway-node-env.sh
+COPY --chmod=0755 railway-node-env.sh railway-node-run.sh railway-supervise.sh /usr/local/bin/
 
 ENV MMDB_FILE_LOCATION=/share/GeoLite2-City.mmdb
 
-# Points every Kafka client at KAFKA_HOSTS, then runs the image command.
+# Points every Kafka client at KAFKA_HOSTS, then starts one Node process, or several
+# when NODE_PROCESSES is set (see railway-node-run.sh).
 ENTRYPOINT ["/usr/local/bin/railway-node-env.sh"]
-CMD ["node", "nodejs/dist/index.js"]
+CMD ["/usr/local/bin/railway-node-run.sh"]
 
-# Health/readiness: GET /_health on HTTP_SERVER_PORT (default 6738).
-EXPOSE 6738
+# Health/readiness: GET /_health on HTTP_SERVER_PORT (default 6738; first entry of
+# NODE_PROCESSES uses the port given there).
+EXPOSE 6738 6739

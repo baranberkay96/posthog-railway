@@ -14,7 +14,6 @@ This is a community template. It is not affiliated with or endorsed by PostHog I
 | Browserless | SSPL-1.0 or Browserless commercial license. Browserless states that commercial, closed-source use needs a commercial license. It is used here only for PNG exports and heatmap screenshots; remove the `browserless` service if that license does not suit you (those two features then stop working). This is not legal advice. | `ghcr.io/browserless/chromium:v2.57.0` |
 | SeaweedFS | Apache-2.0 | `chrislusf/seaweedfs:4.48` |
 | Caddy | Apache-2.0 | `caddy:2.11.7-alpine` |
-| Valkey | BSD-3-Clause | `valkey/valkey:8.1.10-alpine` |
 | Redis 7.2 | BSD-3-Clause | `redis:7.2.16-alpine` |
 | PostgreSQL | PostgreSQL License | `ghcr.io/railwayapp-templates/postgres-ssl:18` (Railway) |
 | GeoLite2 City (MaxMind) | GeoLite2 End User License Agreement (CC BY-SA 4.0 attribution). This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com. Copied at build time from PostHog's livestream image, as PostHog distributes it. | — |
@@ -29,6 +28,7 @@ This is a community template. It is not affiliated with or endorsed by PostHog I
 | Django settings (ClickHouse users, Postgres, Temporal, object storage, service version requirements) | `posthog/settings/{data_stores,temporal,object_storage,service_requirements}.py`, `posthog/clickhouse/dictionaries.py` | same commit | 2026-10-11 |
 | Node configuration (Redis/Valkey/ClickHouse/S3/Kafka variables, health routes) | `nodejs/src/**/config.ts`, `nodejs/src/common/api/router.ts`, `nodejs/src/common/utils/db/redis.ts`, `Dockerfile.node` (commit `a7831e30`), and the compiled `nodejs/dist` of the pinned image `posthog/posthog-node:82ea668` | 2026-10-11 | 2026-10-11 |
 | Rust services (bind addresses, health routes, path-style S3, cookieless Redis URL) | `rust/{capture,capture-logs,feature-flags,hypercache-server,property-defs-rs,personhog-replica,personhog-router,cymbal}/src` | master 2026-10-11 | 2026-10-11 |
+| Process consolidation: Node `NODEJS_CAPABILITY_GROUPS` and mode dispatch, capture modes (exclusive routers per `CAPTURE_MODE`), personhog router/replica addresses, cymbal processing/resolution configs, property-defs bind port | `dist/capabilities.js`, `dist/index.js`, `dist/servers/*` of `posthog/posthog-node:82ea668`; `rust/capture/src/{router,config}.rs` (`sha-14a43b7`), `rust/personhog-router/src/config.rs`, `rust/personhog-replica/src/main.rs` (`sha-4fb044d`), `rust/cymbal/src/main.rs` and `src/modes/*/config.rs` (`sha-ef168ea`), `rust/property-defs-rs/src/config.rs` (`sha-000ac49`) | image builds / commits listed | 2026-10-11 |
 | Livestream environment variables | `livestream/configs/configs.go`, `livestream/main.go` | master 2026-10-11 | 2026-10-11 |
 | Image publishing and tags (`sha-*`, ghcr vs Docker Hub) | `.github/workflows/{container-images-cd,ci-nodejs-container,rust-docker-build}.yml`, `.github/actions/docker-meta/action.yml`; registry manifests | 2026-10-11 | 2026-10-11 |
 | Temporal auto-setup variables (`BIND_ON_IP`, broadcast address, dynamic config path) | `temporalio/auto-setup:1.29.7` image (`entrypoint.sh`, `auto-setup.sh`, `config_template.yaml`) | 1.29.7 | 2026-10-11 |
@@ -39,6 +39,7 @@ This is a community template. It is not affiliated with or endorsed by PostHog I
 - `services/clickhouse/config.d/zz-railway.xml`: the `remote_servers`, `named_collections` and `macros` blocks are adapted from PostHog's `docker/clickhouse/config.d/default.xml` (MIT, Copyright (c) 2020-2026 PostHog Inc.); hosts changed to `localhost`, credentials and ZooKeeper host taken from the environment.
 - `services/proxy/Caddyfile`: path matchers follow the `proxy` service's Caddyfile in PostHog's `docker-compose.base.yml` (MIT, Copyright (c) 2020-2026 PostHog Inc.), rewritten for Railway (environment-based upstreams, trusted proxies, health route).
 - `services/kafka/railway-redpanda.sh`: topic creation follows the hobby `kafka-init` command (MIT, PostHog Inc.), rewritten as a background step of the broker container.
+- `railway-supervise.sh` (in `services/capture`, `property-defs`, `personhog`, `cymbal`, `posthog-node`) and the per-service start scripts that use it: written for this template. The per-process settings (capture modes and topics, property-defs AI topic and consumer group, personhog and cymbal addresses, Node modes) are taken from PostHog's `docker-compose.base.yml` and `docker-compose.hobby.yml` (MIT, PostHog Inc.).
 - `services/seaweedfs/railway-seaweedfs.sh`: bucket bootstrap follows the `objectstorage` entrypoint in `docker-compose.hobby.yml` (MIT, PostHog Inc.); credentials use SeaweedFS's environment-variable identity instead.
 - Fetched unmodified at build time from the pinned PostHog commit (MIT): `docker/clickhouse/{config.xml,users.xml,user_defined_function.xml}`, `posthog/idl/*.json`, `posthog/user_scripts/*` (UDF wrappers and binaries), `docker/kafka/topics.txt`.
 - The Postgres service definition is copied from this repository's `_railway-base/postgres.json` (database name changed to `posthog`); Redis from `_railway-base/redis.json` (image moved to the 7.2 line, LRU cap added).
@@ -49,4 +50,4 @@ This is a community template. It is not affiliated with or endorsed by PostHog I
 
 ## Trademarks
 
-PostHog is a trademark of PostHog Inc. ClickHouse, Redpanda, Temporal, Browserless, SeaweedFS, Apache ZooKeeper, Valkey, Redis and PostgreSQL belong to their respective owners.
+PostHog is a trademark of PostHog Inc. ClickHouse, Redpanda, Temporal, Browserless, SeaweedFS, Apache ZooKeeper, Redis and PostgreSQL belong to their respective owners.
