@@ -968,3 +968,5 @@ Fix:
 - The `web` pre-deploy step now also waits (up to 50 min) until ClickHouse reports the `posthog` cluster before running `./bin/migrate`.
 
 Post-publish test: one run had `property-defs` CRASHED, a second run passed 23/23. Logs showed property-defs-rs exiting immediately while Redpanda was still starting ("Connect to ... :9092 failed"), so the service crash-looped and could end up marked CRASHED depending on start order. `services/property-defs/railway-property-defs.sh` now waits until every broker in `KAFKA_HOSTS` accepts TCP connections before starting the processes (verified locally: unreachable broker → service keeps waiting, no restarts).
+
+Root cause of the remaining property-defs restarts: the `kafka` (Redpanda) listener was bound to `0.0.0.0` (IPv4 only). property-defs-rs (librdkafka) tries the broker's IPv6 address first, got "Connection refused" and shut down on the first transport error; other clients fell back to IPv4. The Kafka listener is now `internal://[::]:9092` (dual-stack; verified locally: IPv4 and IPv6 clients both connect).

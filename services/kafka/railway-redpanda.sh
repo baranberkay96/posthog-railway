@@ -47,7 +47,7 @@ exec setpriv --reuid=redpanda --regid=redpanda --init-groups \
     --memory "$MEMORY" \
     --reserve-memory 0M \
     --overprovisioned \
-    --kafka-addr "internal://0.0.0.0:9092" \
+    --kafka-addr "internal://[::]:9092" \
     --advertise-kafka-addr "internal://${ADVERTISE_HOST}:9092" \
     --rpc-addr "0.0.0.0:33145" \
     --advertise-rpc-addr "127.0.0.1:33145" \
