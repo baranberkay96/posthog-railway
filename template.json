@@ -101,7 +101,7 @@
         "image": "posthog/posthog:sha-716405ddea318758493221f26e844512757c7927"
       },
       "startCommand": "./bin/docker-server",
-      "preDeployCommand": "/bin/bash -c 'for hp in $MIGRATE_WAIT_FOR; do until (exec 3<>/dev/tcp/${hp%:*}/${hp##*:}) 2>/dev/null; do echo \"waiting for $hp\"; sleep 5; done; done; exec ./bin/migrate'",
+      "preDeployCommand": "/bin/bash -c 'for hp in $MIGRATE_WAIT_FOR; do until (exec 3<>/dev/tcp/${hp%:*}/${hp##*:}) 2>/dev/null; do echo \"waiting for $hp\"; sleep 5; done; done; python3 -c \"$(echo aW1wb3J0IGJhc2U2NCwgb3MsIHN5cywgdGltZSwgdXJsbGliLnBhcnNlLCB1cmxsaWIucmVxdWVzdAp1cmwgPSAiaHR0cDovLyVzOjgxMjMvP3F1ZXJ5PSVzIiAlIChvcy5lbnZpcm9uWyJDTElDS0hPVVNFX0hPU1QiXSwgdXJsbGliLnBhcnNlLnF1b3RlKCJTRUxFQ1QgY291bnQoKSBGUk9NIHN5c3RlbS5jbHVzdGVycyBXSEVSRSBjbHVzdGVyID0gJ3Bvc3Rob2cnIikpCmF1dGggPSBiYXNlNjQuYjY0ZW5jb2RlKCgiJXM6JXMiICUgKG9zLmVudmlyb24uZ2V0KCJDTElDS0hPVVNFX1VTRVIiLCAiZGVmYXVsdCIpLCBvcy5lbnZpcm9uWyJDTElDS0hPVVNFX1BBU1NXT1JEIl0pKS5lbmNvZGUoKSkuZGVjb2RlKCkKZm9yIF8gaW4gcmFuZ2UoNjAwKToKICAgIHRyeToKICAgICAgICByZXEgPSB1cmxsaWIucmVxdWVzdC5SZXF1ZXN0KHVybCwgaGVhZGVycz17IkF1dGhvcml6YXRpb24iOiAiQmFzaWMgIiArIGF1dGh9KQogICAgICAgIGlmIGludCh1cmxsaWIucmVxdWVzdC51cmxvcGVuKHJlcSwgdGltZW91dD01KS5yZWFkKCkuc3RyaXAoKSBvciAwKSA+IDA6CiAgICAgICAgICAgIHByaW50KCJDbGlja0hvdXNlIHBvc3Rob2cgY2x1c3RlciByZWFkeSIsIGZsdXNoPVRydWUpCiAgICAgICAgICAgIHN5cy5leGl0KDApCiAgICBleGNlcHQgRXhjZXB0aW9uOgogICAgICAgIHBhc3MKICAgIHByaW50KCJ3YWl0aW5nIGZvciB0aGUgQ2xpY2tIb3VzZSBwb3N0aG9nIGNsdXN0ZXIiLCBmbHVzaD1UcnVlKQogICAgdGltZS5zbGVlcCg1KQpzeXMuZXhpdCgxKQo= | base64 -d)\" && exec ./bin/migrate'",
       "preDeployTimeoutSeconds": 3600,
       "healthcheckPath": "/_health",
       "healthcheckTimeout": 900,

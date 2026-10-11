@@ -958,3 +958,11 @@ Railway prices: RAM $10/GB-month, vCPU $20/vCPU-month, volume $0.15/GB-month.
 - **PostHog AI features** stay off until `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` are set on `web`.
 - **Email** (invites, password resets) needs SMTP settings (`EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_DEFAULT_FROM`) on web and worker; outbound SMTP requires Railway Pro.
 - **Upgrades** are commit-based: PostHog changes the hobby compose often. Upgrade all PostHog images together, and diff `docker-compose.hobby.yml`/`docker-compose.base.yml` between the old and new commit for new services or variables. When the Node image is upgraded to a build that consumes PostHog's AI lane, set `CAPTURE_AI_LANE_TOPIC=events_plugin_ingestion_ai` on `capture` at the same time.
+
+## Deploy test findings (2026-10-11)
+
+First Railway test of the 23-service layout: 22/23 healthy, `web` failed in pre-deploy (`run_async_migrations` → IndexError) because PostHog's ClickHouse migrations had run on **0 hosts**. Cause: Railway registers a service's private DNS name only after its deployment is up, so at boot ClickHouse could not resolve its own `CLICKHOUSE_CLUSTER_HOST` ("Not found address of host: clickhouse.railway.internal") and built the `posthog` clusters empty. Locally (docker compose DNS) the name resolves immediately, so this never showed up before.
+
+Fix:
+- `services/clickhouse/railway-entrypoint.sh` waits in the background until the name resolves, then runs `SYSTEM DROP DNS CACHE` + `SYSTEM RELOAD CONFIG` until `system.clusters` lists the `posthog` cluster.
+- The `web` pre-deploy step now also waits (up to 50 min) until ClickHouse reports the `posthog` cluster before running `./bin/migrate`.

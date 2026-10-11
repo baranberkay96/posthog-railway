@@ -34,5 +34,24 @@ rm -rf /var/lib/clickhouse/lost+found 2>/dev/null || true
   echo "railway: WARNING could not run SYSTEM FLUSH LOGS" >&2
 ) &
 
+# Railway registers this service's private DNS name only after the deployment is up
+# (after the /ping healthcheck), so at boot ClickHouse cannot resolve its own cluster
+# host and builds the posthog clusters with no replicas (PostHog then migrates nothing).
+# Once the name resolves, drop the DNS cache and reload the config to rebuild them.
+(
+  until getent hosts "$CLICKHOUSE_CLUSTER_HOST" >/dev/null 2>&1; do sleep 5; done
+  for _ in $(seq 1 120); do
+    clickhouse client --host 127.0.0.1 --password "$CLICKHOUSE_PASSWORD" -q "SYSTEM DROP DNS CACHE" >/dev/null 2>&1 || true
+    clickhouse client --host 127.0.0.1 --password "$CLICKHOUSE_PASSWORD" -q "SYSTEM RELOAD CONFIG" >/dev/null 2>&1 || true
+    n="$(clickhouse client --host 127.0.0.1 --password "$CLICKHOUSE_PASSWORD" -q "SELECT count() FROM system.clusters WHERE cluster = 'posthog'" 2>/dev/null || echo 0)"
+    if [ "${n:-0}" -gt 0 ]; then
+      echo "railway: cluster host ${CLICKHOUSE_CLUSTER_HOST} resolves; posthog cluster ready"
+      exit 0
+    fi
+    sleep 5
+  done
+  echo "railway: WARNING posthog cluster still empty after config reloads" >&2
+) &
+
 echo "railway: starting ClickHouse (cluster host=${CLICKHOUSE_CLUSTER_HOST}, zookeeper=${ZOOKEEPER_HOST}, kafka=${KAFKA_HOSTS})"
 exec /entrypoint.sh "$@"
