@@ -1,0 +1,91 @@
+# PostHog single-origin router for Railway.
+#
+# Railway gives each service one public domain, but PostHog serves the app, the
+# capture endpoints, feature flags, live events and presigned object downloads
+# from one origin. This Caddy instance owns the public domain and forwards each
+# path to the matching private service. The routing table follows the proxy
+# block in PostHog's docker-compose.base.yml (hobby deployment).
+#
+# Upstream addresses come from environment variables set in the template; the
+# defaults are the Railway private DNS names of the template's services.
+# Caddy resolves them per connection, so it can boot before the upstreams.
+
+{
+	admin off
+	persist_config off
+	auto_https off
+
+	servers {
+		# Railway's edge terminates TLS and sets X-Forwarded-*; trust it so that
+		# X-Forwarded-Proto=https reaches Django (secure cookies, CSRF origin checks).
+		trusted_proxies static private_ranges 100.0.0.0/8
+		client_ip_headers X-Forwarded-For X-Real-IP
+	}
+}
+
+:{$PORT:8080} {
+	# Liveness of the router itself (Railway healthcheck). Never proxied.
+	handle /_proxy/health {
+		respond "OK" 200
+	}
+
+	@replay-capture path /s /s/ /s/*
+	@capture-ai path /i/v0/ai /i/v0/ai/ /i/v0/ai/* /i/v1/ai/events /i/v1/ai/events/
+	@capture path /e /e/ /e/* /i/v0 /i/v0/ /i/v0/* /i/v1/analytics/events /i/v1/analytics/events/ /batch /batch/ /batch/* /capture /capture/ /capture/*
+	@capture-logs path /i/v1/logs /i/v1/logs/ /i/v1/logs/* /i/v1/traces /i/v1/traces/ /i/v1/traces/* /i/v1/metrics /i/v1/metrics/ /i/v1/metrics/*
+	@flags path /flags /flags/ /flags/* /api/feature_flag/local_evaluation /api/feature_flag/local_evaluation/ /api/feature_flag/local_evaluation/*
+	@surveys path /surveys /surveys/ /api/surveys /api/surveys/
+	@remote-config path /array/*
+	@webhooks path /public/webhooks /public/webhooks/ /public/webhooks/* /public/m/ /public/m/*
+	@livestream path /livestream /livestream/ /livestream/*
+	@objectstorage path /posthog /posthog/ /posthog/*
+
+	handle @livestream {
+		uri strip_prefix /livestream
+		reverse_proxy {$LIVESTREAM_UPSTREAM:livestream.railway.internal:8080} {
+			flush_interval -1
+		}
+	}
+
+	handle @capture-ai {
+		reverse_proxy {$CAPTURE_AI_UPSTREAM:capture-ai.railway.internal:3000}
+	}
+
+	handle @capture {
+		reverse_proxy {$CAPTURE_UPSTREAM:capture.railway.internal:3000}
+	}
+
+	handle @replay-capture {
+		reverse_proxy {$REPLAY_CAPTURE_UPSTREAM:replay-capture.railway.internal:3000}
+	}
+
+	handle @capture-logs {
+		reverse_proxy {$CAPTURE_LOGS_UPSTREAM:capture-logs.railway.internal:4318}
+	}
+
+	handle @flags {
+		reverse_proxy {$FEATURE_FLAGS_UPSTREAM:feature-flags.railway.internal:3001}
+	}
+
+	handle @surveys {
+		reverse_proxy {$HYPERCACHE_UPSTREAM:hypercache-server.railway.internal:3002}
+	}
+
+	handle @remote-config {
+		reverse_proxy {$HYPERCACHE_UPSTREAM:hypercache-server.railway.internal:3002}
+	}
+
+	handle @webhooks {
+		reverse_proxy {$PLUGINS_UPSTREAM:plugins.railway.internal:6738}
+	}
+
+	# Presigned object URLs (exports, media) are signed for this public host and
+	# forwarded unchanged; the Host header is preserved so the signature matches.
+	handle @objectstorage {
+		reverse_proxy {$OBJECTSTORAGE_UPSTREAM:objectstorage.railway.internal:19000}
+	}
+
+	handle {
+		reverse_proxy {$WEB_UPSTREAM:web.railway.internal:8000}
+	}
+}

@@ -1,0 +1,109 @@
+<!--
+  Railway overrides for PostHog's single-node ClickHouse, merged over PostHog's
+  docker/clickhouse/config.xml (fetched at build time).
+
+  - Cluster definitions, Kafka named collections and macros are adapted from PostHog's
+    docker/clickhouse/config.d/default.xml (MIT). Replicas point at
+    this service's Railway private domain (CLICKHOUSE_CLUSTER_HOST) and authenticate with the
+    generated default-user password. PostHog's migration tooling reads system.clusters and
+    connects to every listed host directly, so the name must resolve from other services.
+  - ZooKeeper host and Kafka brokers come from the environment (Railway private domains).
+  - UDF scripts and format schemas live in the image, outside the /var/lib/clickhouse volume.
+  - Smaller caches and fewer system log tables than the developer config, logs to stdout.
+-->
+<clickhouse>
+    <logger replace="1">
+        <level>warning</level>
+        <console>1</console>
+    </logger>
+
+    <tcp_port>9000</tcp_port>
+    <!-- Only HTTP (8123) and native (9000) are used, over the private network.
+         TLS ports have no certificates here and the MySQL/PostgreSQL wire protocols are unused. -->
+    <https_port remove="1"/>
+    <tcp_port_secure remove="1"/>
+    <mysql_port remove="1"/>
+    <postgresql_port remove="1"/>
+    <openSSL>
+        <server remove="1"/>
+    </openSSL>
+
+    <!-- Caches: the developer config assumes a large host (5 GiB mark cache, 8 GiB uncompressed). -->
+    <mark_cache_size>536870912</mark_cache_size>
+    <index_mark_cache_size>134217728</index_mark_cache_size>
+    <uncompressed_cache_size>268435456</uncompressed_cache_size>
+    <max_server_memory_usage_to_ram_ratio>0.85</max_server_memory_usage_to_ram_ratio>
+    <total_memory_profiler_step>0</total_memory_profiler_step>
+
+    <!-- High-churn system log tables PostHog does not read. query_log, part_log,
+         crash_log, session_log and backup_log stay (with the TTLs from config.xml). -->
+    <trace_log remove="1"/>
+    <text_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <query_thread_log remove="1"/>
+    <query_views_log remove="1"/>
+    <opentelemetry_span_log remove="1"/>
+    <processors_profile_log remove="1"/>
+    <query_metric_log remove="1"/>
+    <latency_log remove="1"/>
+
+    <user_scripts_path>/etc/clickhouse-server/user_scripts/</user_scripts_path>
+    <format_schema_path>/etc/clickhouse-server/format_schemas/</format_schema_path>
+
+    <zookeeper replace="1">
+        <node>
+            <host from_env="ZOOKEEPER_HOST"/>
+            <port>2181</port>
+        </node>
+    </zookeeper>
+
+    <remote_servers replace="1">
+        <posthog>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </posthog>
+        <posthog_single_shard>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </posthog_single_shard>
+        <posthog_migrations>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </posthog_migrations>
+        <posthog_writable>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </posthog_writable>
+        <posthog_primary_replica>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </posthog_primary_replica>
+        <ai_events>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </ai_events>
+        <aux>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </aux>
+        <ops>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </ops>
+        <sessions>
+            <shard><replica><host from_env="CLICKHOUSE_CLUSTER_HOST"/><port>9000</port><user>default</user><password from_env="CLICKHOUSE_PASSWORD"/></replica></shard>
+        </sessions>
+    </remote_servers>
+
+    <named_collections replace="1">
+        <msk_cluster><kafka_broker_list from_env="KAFKA_HOSTS"/></msk_cluster>
+        <warpstream_ingestion><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_ingestion>
+        <warpstream_calculated_events><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_calculated_events>
+        <warpstream_replay><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_replay>
+        <warpstream_shared><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_shared>
+        <warpstream_cyclotron><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_cyclotron>
+        <warpstream_logs><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_logs>
+        <warpstream_traces><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_traces>
+        <warpstream_metrics><kafka_broker_list from_env="KAFKA_HOSTS"/></warpstream_metrics>
+    </named_collections>
+
+    <macros replace="1">
+        <shard>01</shard>
+        <replica>ch1</replica>
+        <hostClusterType>online</hostClusterType>
+        <hostClusterRole>data</hostClusterRole>
+    </macros>
+</clickhouse>

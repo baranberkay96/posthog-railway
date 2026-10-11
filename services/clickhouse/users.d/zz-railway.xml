@@ -1,0 +1,22 @@
+<!--
+  Passwords for the users defined in PostHog's docker/clickhouse/users.xml.
+  The developer file ships fixed passwords (and none for `default`); here every user
+  reads a generated password from the service environment.
+  The root element matches users.xml (<yandex>) so the files merge.
+-->
+<yandex>
+    <users>
+        <default>
+            <password replace="1" from_env="CLICKHOUSE_PASSWORD"/>
+        </default>
+        <api>
+            <password replace="1" from_env="CLICKHOUSE_API_PASSWORD"/>
+        </api>
+        <app>
+            <password replace="1" from_env="CLICKHOUSE_APP_PASSWORD"/>
+        </app>
+        <dict_reader>
+            <password replace="1" from_env="CLICKHOUSE_DICT_READER_PASSWORD"/>
+        </dict_reader>
+    </users>
+</yandex>
